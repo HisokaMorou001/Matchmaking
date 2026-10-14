@@ -11,17 +11,17 @@ public class Client {
 
         Socket socket = new Socket(ip, 5000);
 
-        PrintWriter out = new PrintWriter(
-            socket.getOutputStream(), true);
-
         BufferedReader in = new BufferedReader(
             new InputStreamReader(socket.getInputStream()));
+
+        PrintWriter out = new PrintWriter(
+            socket.getOutputStream(), true);
 
         System.out.print("Nickname: ");
         String nickname = tastiera.nextLine();
 
         System.out.print("Livello: ");
-        String livello = tastiera.nextLine();
+        int livello = Integer.parseInt(tastiera.nextLine());
 
         out.println(nickname);
         out.println(livello);

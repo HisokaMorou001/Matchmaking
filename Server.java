@@ -1,28 +1,58 @@
 import java.net.*;
 import java.io.*;
+import java.util.*;
 
 public class Server {
+    static ArrayList<String> giocatori = new ArrayList<>();
+
     public static void main(String[] args) throws Exception {
         ServerSocket server = new ServerSocket(5000);
         System.out.println("Server avviato");
 
-        Socket socket = server.accept();
+        while (true) {
+            Socket socket = server.accept();
+            new Thread(new Gestore(socket)).start();
+        }
+    }
 
-        BufferedReader in = new BufferedReader(
-            new InputStreamReader(socket.getInputStream()));
+    static class Gestore implements Runnable {
+        Socket socket;
 
-        PrintWriter out = new PrintWriter(
-            socket.getOutputStream(), true);
+        Gestore(Socket socket) {
+            this.socket = socket;
+        }
 
-        String nickname = in.readLine();
-        String livello = in.readLine();
+        public void run() {
+            try {
+                BufferedReader in = new BufferedReader(
+                    new InputStreamReader(socket.getInputStream()));
 
-        System.out.println("Giocatore: " + nickname);
-        System.out.println("Livello: " + livello);
+                PrintWriter out = new PrintWriter(
+                    socket.getOutputStream(), true);
 
-        out.println("Sei collegato al server!");
+                String nickname = in.readLine();
+                int livello = Integer.parseInt(in.readLine());
 
-        socket.close();
-        server.close();
+                String giocatore = nickname + " - Livello: " + livello
+                    + " - IP: "
+                    + socket.getInetAddress().getHostAddress();
+
+                synchronized (giocatori) {
+                    giocatori.add(giocatore);
+                    System.out.println("Giocatori registrati:");
+
+                    for (String g : giocatori) {
+                        System.out.println(g);
+                    }
+                }
+
+                out.println("Registrazione completata!");
+
+                socket.close();
+
+            } catch (Exception e) {
+                System.out.println("Errore client");
+            }
+        }
     }
 }
