@@ -1,3 +1,4 @@
+
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -11,39 +12,69 @@ public class Server {
         ServerSocket server = new ServerSocket(5000);
         System.out.println("Server avviato");
 
-        while (true) {
-            Socket socket = server.accept();
-            new Thread(new Gestore(socket)).start();
+        new Thread(() -> {
+            Scanner tastiera = new Scanner(System.in);
+            tastiera.nextLine();
+
+            try {
+                server.close();
+            } catch (Exception e) {
+                System.out.println("Errore");
+            }
+        }).start();
+
+        while (!server.isClosed()) {
+            try {
+                Socket socket = server.accept();
+                new Thread(new Gestore(socket)).start();
+            } catch (Exception e) {
+                if (!server.isClosed()) {
+                    System.out.println("Errore di connessione");
+                }
+            }
         }
+
+        System.out.println("Server terminato");
     }
 
     static synchronized void aggiungi(Giocatore g) {
         giocatori.add(g);
+        System.out.println(g.nickname + " in attesa");
         controllaGruppi();
     }
 
+    static synchronized void rimuovi(Giocatore g) {
+        giocatori.remove(g);
+    }
+
     static void controllaGruppi() {
-        Collections.sort(giocatori,
-            Comparator.comparingInt(g -> g.livello));
+        boolean trovato = true;
 
-        while (giocatori.size() >= ngg) {
-            int minimo = giocatori.get(0).livello;
-            int massimo = giocatori.get(ngg - 1).livello;
+        while (trovato) {
+            trovato = false;
 
-            if (massimo - minimo > dml) {
-                break;
+            Collections.sort(giocatori,
+                Comparator.comparingInt(g -> g.livello));
+
+            for (int i = 0; i <= giocatori.size() - ngg; i++) {
+                int minimo = giocatori.get(i).livello;
+                int massimo = giocatori.get(i + ngg - 1).livello;
+
+                if (massimo - minimo <= dml) {
+                    ArrayList<Giocatore> gruppo =
+                        new ArrayList<>(giocatori.subList(i, i + ngg));
+
+                    giocatori.removeAll(gruppo);
+
+                    for (Giocatore g : gruppo) {
+                        g.invia(gruppo);
+                    }
+
+                    System.out.println("Gruppo creato");
+                    trovato = true;
+                    break;
+                }
             }
-
-            ArrayList<Giocatore> gruppo =
-                new ArrayList<>(giocatori.subList(0, ngg));
-
-            giocatori.subList(0, ngg).clear();
-
-            for (Giocatore g : gruppo) {
-                g.invia(gruppo);
-            }
-
-            System.out.println("Gruppo creato!");
         }
     }
 
@@ -80,6 +111,8 @@ public class Server {
         }
 
         public void run() {
+            Giocatore g = null;
+
             try {
                 BufferedReader in = new BufferedReader(
                     new InputStreamReader(socket.getInputStream()));
@@ -89,20 +122,28 @@ public class Server {
 
                 String nickname = in.readLine();
                 int livello = Integer.parseInt(in.readLine());
+
                 String ip = socket.getInetAddress().getHostAddress();
 
-                Giocatore g = new Giocatore(nickname, livello, ip, out);
-
-                System.out.println(nickname + " in attesa");
+                g = new Giocatore(nickname, livello, ip, out);
                 aggiungi(g);
 
-                String riga;
-                while ((riga = in.readLine()) != null) {
-                    // Il client resta collegato.
+                while (in.readLine() != null) {
+                    // Attende finché il client resta collegato.
                 }
 
             } catch (Exception e) {
-                System.out.println("Connessione terminata");
+                System.out.println("Client disconnesso");
+            } finally {
+                if (g != null) {
+                    rimuovi(g);
+                }
+
+                try {
+                    socket.close();
+                } catch (Exception e) {
+                    // Connessione già chiusa.
+                }
             }
         }
     }
